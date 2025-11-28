@@ -409,3 +409,68 @@ func (uc *UserController) DeleteUser(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "User deleted successfully"})
 }
+
+// ChangePasswordRequest 修改密码请求结构
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"current_password" binding:"required"`
+	NewPassword     string `json:"new_password" binding:"required,min=6"`
+}
+
+// ChangePassword 修改用户密码
+func (uc *UserController) ChangePassword(c *gin.Context) {
+	// 获取当前用户ID和租户ID
+	currentUserID := c.GetUint("user_id")
+	tenantID := c.GetUint("tenant_id")
+
+	// 绑定请求参数
+	var req ChangePasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		err := pkg.NewValidationError("Invalid request data", err)
+		c.JSON(pkg.GetHTTPStatus(err), gin.H{"code": string(err.Code), "message": err.Message})
+		return
+	}
+
+	// 获取当前用户信息
+	var user models.User
+	result := pkg.DB.Where("id = ? AND tenant_id = ?", currentUserID, tenantID).First(&user)
+	if result.Error != nil {
+		err := pkg.NewNotFoundError("User not found", result.Error)
+		c.JSON(pkg.GetHTTPStatus(err), gin.H{"code": string(err.Code), "message": err.Message})
+		return
+	}
+
+	// 验证当前密码是否正确
+	if !utils.CheckPasswordHash(req.CurrentPassword, user.Password) {
+		err := pkg.NewValidationError("Current password is incorrect", nil)
+		c.JSON(pkg.GetHTTPStatus(err), gin.H{"code": string(err.Code), "message": err.Message})
+		return
+	}
+
+	// 哈希新密码
+	hashedPassword, err := utils.HashPassword(req.NewPassword)
+	if err != nil {
+		err := pkg.NewInternalError("Failed to hash new password", err)
+		c.JSON(pkg.GetHTTPStatus(err), gin.H{"code": string(err.Code), "message": err.Message})
+		return
+	}
+
+	// 更新密码
+	user.Password = hashedPassword
+	result = pkg.DB.Save(&user)
+	if result.Error != nil {
+		err := pkg.NewDatabaseError("Failed to update password", result.Error)
+		c.JSON(pkg.GetHTTPStatus(err), gin.H{"code": string(err.Code), "message": err.Message})
+		return
+	}
+
+	// 记录修改密码的审计日志
+	_ = pkg.AuditLogFromContext(c, pkg.AuditLogOptions{
+		Action:       "change_password",
+		ResourceType: "user",
+		ResourceID:   fmt.Sprintf("%d", currentUserID),
+		OldValue:     map[string]interface{}{"user_id": currentUserID},
+		NewValue:     map[string]interface{}{"user_id": currentUserID, "password_changed": true},
+	})
+
+	c.JSON(http.StatusOK, gin.H{"message": "Password changed successfully"})
+}

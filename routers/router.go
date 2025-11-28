@@ -104,6 +104,8 @@ func SetupRouter() *gin.Engine {
 				users.POST("/", userCtrl.CreateUser)
 				users.PUT("/:id", userCtrl.UpdateUser)
 				users.DELETE("/:id", userCtrl.DeleteUser)
+				// 更新密码接口，不需要用户ID参数，当前登录用户修改个人密码
+				users.POST("/change-password", userCtrl.ChangePassword)
 			}
 
 			// 团队相关路由
