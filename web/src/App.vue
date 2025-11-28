@@ -770,6 +770,8 @@ const handleMenuSelect = (key) => {
   display: flex;
   min-height: 0;
   background: var(--color-background);
+  /* 为固定侧边栏留出空间 */
+  padding-left: 280px;
 }
 
 /* 侧边栏样式 */
@@ -781,9 +783,14 @@ const handleMenuSelect = (key) => {
   flex-direction: column;
   box-shadow: 0 0 20px rgba(0, 0, 0, 0.04);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
   z-index: 10;
-  overflow: hidden;
+  overflow-y: auto;
+  /* 考虑顶部导航栏的高度 */
+  padding-top: 72px; /* 与app-header的高度保持一致 */
 }
 
 /* 添加侧边栏装饰元素 */
