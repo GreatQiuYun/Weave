@@ -69,19 +69,22 @@ func SetupRouter() *gin.Engine {
 		appGroup.Use(pkg.AuditLogMiddleware())      // 添加安全审计日志中间件
 
 		// 认证相关路由
-		auth := appGroup.Group("/auth")
-		{
-			// 为认证服务添加重试和超时保护
-			auth.Use(middleware.RetryMiddleware(middleware.DefaultRetryConfig()))
-			auth.Use(middleware.TimeoutMiddleware(middleware.DefaultTimeoutConfig()))
+			auth := appGroup.Group("/auth")
+			{
+				// 为认证服务添加重试和超时保护
+				auth.Use(middleware.RetryMiddleware(middleware.DefaultRetryConfig()))
+				auth.Use(middleware.TimeoutMiddleware(middleware.DefaultTimeoutConfig()))
 
-			// 限流保护，为认证接口添加限流：每秒允许10个请求，突发容量20
-			auth.Use(middleware.RateLimiter(10, 20))
-			userCtrl := &controllers.UserController{}
-			auth.POST("/register", userCtrl.Register)
-			auth.POST("/login", userCtrl.Login)
-			auth.POST("/refresh-token", userCtrl.RefreshToken)
-		}
+				// 限流保护，为认证接口添加限流：每秒允许10个请求，突发容量20
+				auth.Use(middleware.RateLimiter(10, 20))
+				userCtrl := controllers.NewUserController()
+				auth.POST("/register", userCtrl.Register)
+				auth.POST("/login", userCtrl.Login)
+				auth.POST("/refresh-token", userCtrl.RefreshToken)
+				// 添加验证码相关接口
+				auth.POST("/send-verification-code", userCtrl.SendVerificationCode)
+				auth.POST("/login-with-code", userCtrl.LoginWithVerificationCode)
+			}
 
 		// API分组
 		api := appGroup.Group("/api/v1")
@@ -98,12 +101,14 @@ func SetupRouter() *gin.Engine {
 				users.Use(middleware.RetryMiddleware(middleware.DefaultRetryConfig()))
 				users.Use(middleware.TimeoutMiddleware(middleware.DefaultTimeoutConfig()))
 
-				userCtrl := &controllers.UserController{}
+				userCtrl := controllers.NewUserController()
 				users.GET("/", userCtrl.GetUsers)
 				users.GET("/:id", userCtrl.GetUser)
 				users.POST("/", userCtrl.CreateUser)
 				users.PUT("/:id", userCtrl.UpdateUser)
 				users.DELETE("/:id", userCtrl.DeleteUser)
+				// 更新密码接口，不需要用户ID参数，当前登录用户修改个人密码
+				users.POST("/change-password", userCtrl.ChangePassword)
 			}
 
 			// 团队相关路由

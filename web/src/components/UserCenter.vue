@@ -136,6 +136,31 @@
         </div>
 
         <div class="form-content">
+          <div class="form-group" :class="{ 'has-error': currentPasswordError }">
+            <label class="form-label">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 15V17C12 18.6569 10.6569 20 9 20H7C5.34315 20 4 18.6569 4 17V15M12 9V7C12 5.34315 13.3431 4 15 4H17C18.6569 4 20 5.34315 20 7V9M12 15L9 12M12 15V12M12 12L15 9M12 12V9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              当前密码
+            </label>
+            <div class="input-wrapper">
+              <input 
+                v-model="currentPassword" 
+                type="password" 
+                placeholder="请输入当前密码" 
+                class="form-input"
+                :class="{ 'error': currentPasswordError }"
+                @input="clearStatus" 
+              />
+            </div>
+            <div v-if="currentPasswordError" class="field-message error">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 8V12M12 16H12.01M22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              {{ currentPasswordError }}
+            </div>
+          </div>
+          
           <div class="form-group" :class="{ 'has-error': passwordMismatch }">
             <label class="form-label">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -251,7 +276,7 @@
         </div>
         
         <div v-else class="activity-list">
-          <div v-for="log in auditLogs" :key="log.id" class="activity-item">
+          <div v-for="log in currentPageLogs" :key="log.id" class="activity-item">
             <div class="activity-header">
               <div class="activity-action">
                 <span class="action-badge" :class="getActionClass(log.action)">
@@ -276,6 +301,43 @@
               </div>
             </div>
           </div>
+        </div>
+        
+        <!-- 分页控制 -->
+        <div v-if="auditLogs.length > 0" class="pagination">
+          <button 
+            class="pagination-btn" 
+            @click="goToPrevPage"
+            :disabled="currentPage === 1"
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            上一页
+          </button>
+          
+          <div class="pagination-numbers">
+            <button 
+              v-for="page in visiblePages" 
+              :key="page"
+              class="pagination-number"
+              :class="{ active: page === currentPage }"
+              @click="goToPage(page)"
+            >
+              {{ page }}
+            </button>
+          </div>
+          
+          <button 
+            class="pagination-btn" 
+            @click="goToNextPage"
+            :disabled="currentPage === totalPages"
+          >
+            下一页
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M9 18L15 12L9 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
         </div>
       </div>
     </section>
@@ -309,12 +371,17 @@ export default {
     return {
       user: null,
       email: '',
+      currentPassword: '',
       newPassword: '',
       confirmNewPassword: '',
       auditLogs: [],
       updating: false,
       errorMessage: '',
-      successMessage: ''
+      successMessage: '',
+      currentPasswordError: '',
+      // 分页相关状态
+      currentPage: 1,
+      pageSize: 8
     }
   },
   mounted() {
@@ -324,6 +391,37 @@ export default {
     // 新增：是否允许保存资料
     canSave() {
       return !!this.email && !this.emailInvalid
+    },
+    // 分页相关计算属性
+    totalPages() {
+      return Math.ceil(this.auditLogs.length / this.pageSize)
+    },
+    // 当前页显示的数据
+    currentPageLogs() {
+      const startIndex = (this.currentPage - 1) * this.pageSize
+      const endIndex = startIndex + this.pageSize
+      return this.auditLogs.slice(startIndex, endIndex)
+    },
+    // 可见的页码范围
+    visiblePages() {
+      const pages = []
+      const total = this.totalPages
+      const current = this.currentPage
+      
+      // 显示当前页附近的页码，最多显示5个
+      let start = Math.max(1, current - 2)
+      let end = Math.min(total, start + 4)
+      
+      // 调整起始页码，确保显示5个页码（除非总页数少于5）
+      if (end - start < 4) {
+        start = Math.max(1, end - 4)
+      }
+      
+      for (let i = start; i <= end; i++) {
+        pages.push(i)
+      }
+      
+      return pages
     },
     // 新增：邮箱是否非法
     emailInvalid() {
@@ -354,14 +452,29 @@ export default {
     },
     // 新增：是否允许更新密码
     canUpdatePassword() {
-      return !!this.newPassword && this.newPassword.length >= 6 && !this.passwordMismatch
+      return !!this.currentPassword && !!this.newPassword && this.newPassword.length >= 6 && !this.passwordMismatch && !this.currentPasswordError
     }
   },
   methods: {
+    // 分页相关方法
+    goToPage(page) {
+      if (page >= 1 && page <= this.totalPages) {
+        this.currentPage = page
+        // 触发视图更新
+        this.$forceUpdate()
+      }
+    },
+    goToPrevPage() {
+      this.goToPage(this.currentPage - 1)
+    },
+    goToNextPage() {
+      this.goToPage(this.currentPage + 1)
+    },
     // 新增：输入时清除顶部成功/错误提示，避免阻碍表单操作
     clearStatus() {
       this.errorMessage = ''
       this.successMessage = ''
+      this.currentPasswordError = ''
     },
     // 新增：获取操作类型对应的样式类
     getActionClass(action) {
@@ -379,10 +492,16 @@ export default {
           this.errorMessage = '未获取到当前用户信息，请重新登录'
           return
         }
+        
+        // 当前使用的API调用方式
         const res = await api.get(`/api/v1/users/${cur.id}`)
         this.user = res
         this.email = res.email || ''
-        this.auditLogs = Array.isArray(res.audit_logs) ? res.audit_logs.slice(0, 20) : []
+        
+        // 保存所有的审计日志，用于本地分页
+        // 确保auditLogs是数组，并且初始化currentPage为1
+        this.auditLogs = Array.isArray(res.audit_logs) ? res.audit_logs : []
+        this.currentPage = 1 // 重置为第一页
         this.errorMessage = ''
       } catch (e) {
         this.errorMessage = e?.response?.data?.message || '加载用户信息失败'
@@ -411,6 +530,8 @@ export default {
         this.updating = true
         this.successMessage = ''
         this.errorMessage = ''
+        
+        // 表单验证
         if (!this.newPassword || this.newPassword.length < 6) {
           this.errorMessage = '新密码至少6个字符'
           return
@@ -419,20 +540,47 @@ export default {
           this.errorMessage = '两次输入的密码不一致'
           return
         }
+        
+        // 确保用户已登录
         const cur = authService.getCurrentUser()
         if (!cur || !cur.id) throw new Error('未登录')
-        const payload = { password: this.newPassword }
-        const updated = await api.put(`/api/v1/users/${cur.id}`, payload)
-        this.user = updated
-        this.$emit('updated-user', updated)
+        
+        // 验证当前密码是否输入
+        if (!this.currentPassword) {
+          this.currentPasswordError = '请输入当前密码'
+          return
+        }
+        
+        // 使用正确的API端点和参数格式
+        const payload = {
+          current_password: this.currentPassword,
+          new_password: this.newPassword
+        }
+        
+        // 发送修改密码请求（使用POST方法）
+        await api.post('/api/v1/users/change-password', payload)
+        
+        // 成功后重置表单并显示成功消息
+        this.currentPassword = ''
         this.newPassword = ''
         this.confirmNewPassword = ''
-        this.successMessage = '密码已更新'
+        this.successMessage = '密码已成功更新'
+        
+        // 可以考虑让用户重新登录以确保安全性
+        // 此处可以添加自动登出逻辑或提示
       } catch (e) {
-        this.errorMessage = e?.response?.data?.message || '密码更新失败'
-      } finally {
-        this.updating = false
-      }
+          // 处理错误响应
+          if (e?.response?.status === 403 && e?.response?.data?.error === 'CSRF token validation failed') {
+            this.errorMessage = '安全验证失败，请刷新页面后重试'
+          } else if (e?.response?.status === 400 && e?.response?.data?.message?.includes('当前密码')) {
+            // 当前密码错误的情况
+            this.currentPasswordError = e?.response?.data?.message || '当前密码错误'
+          } else {
+            this.errorMessage = e?.response?.data?.message || '密码更新失败'
+          }
+        } finally {
+          this.updating = false
+        }
     },
     formatDate(dt) {
       if (!dt) return '-'
@@ -933,6 +1081,83 @@ export default {
 .change-item.new {
   background: #f0fdf4;
   color: #166534;
+}
+
+/* 分页样式 */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.pagination-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  color: #374151;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: #f9fafb;
+  border-color: #d1d5db;
+  color: #111827;
+}
+
+.pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #f9fafb;
+}
+
+.pagination-numbers {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pagination-number {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  color: #374151;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pagination-number:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
+  color: #111827;
+}
+
+.pagination-number.active {
+  background: #667eea;
+  border-color: #667eea;
+  color: #ffffff;
+}
+
+.pagination-number.active:hover {
+  background: #5a67d8;
+  border-color: #5a67d8;
 }
 
 /* 全局消息 */
