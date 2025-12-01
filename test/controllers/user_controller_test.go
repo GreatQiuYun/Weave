@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
@@ -23,8 +24,9 @@ func setupMemoryDB(t *testing.T) *gorm.DB {
 	if err != nil {
 		t.Fatalf("gorm open error: %v", err)
 	}
-	if err := db.AutoMigrate(&models.User{}, &models.LoginHistory{}, &models.AuditLog{}); err != nil {
-		t.Fatalf("auto migrate user/audit tables error: %v", err)
+	// 添加EmailVerificationCode模型的自动迁移
+	if err := db.AutoMigrate(&models.User{}, &models.LoginHistory{}, &models.AuditLog{}, &models.EmailVerificationCode{}); err != nil {
+		t.Fatalf("auto migrate tables error: %v", err)
 	}
 	pkg.DB = db
 	return db
@@ -79,18 +81,34 @@ func TestUserLogin_Success(t *testing.T) {
 		t.Fatalf("seed user error: %v", err)
 	}
 
+	// Seed verification code
+	verificationCode := models.EmailVerificationCode{
+		Email:     user.Email,
+		Code:      "123456",
+		TenantID:  1,
+		ExpiresAt: time.Now().Add(10 * time.Minute),
+	}
+	if err := db.Create(&verificationCode).Error; err != nil {
+		t.Fatalf("seed verification code error: %v", err)
+	}
+
 	uc := controllers.UserController{}
 	r := gin.New()
+	// Set tenant_id=1 via middleware
+	r.Use(func(c *gin.Context) { c.Set("tenant_id", uint(1)); c.Next() })
 	r.POST("/login", func(c *gin.Context) { uc.Login(c) })
 
-	payload := `{"username":"alice","password":"secret123"}`
+	// Include code parameter in login request
+	payload := `{"username":"alice","password":"secret123","code":"123456"}`
 	req, _ := http.NewRequest(http.MethodPost, "/login", strings.NewReader(payload))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
 	if w.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d", w.Code)
+		// Print response body for debugging
+		bodyStr := w.Body.String()
+		t.Fatalf("expected 200, got %d. Response: %s", w.Code, bodyStr)
 	}
 	var body struct {
 		Message      string      `json:"message"`
