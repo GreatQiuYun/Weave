@@ -394,6 +394,25 @@ func LoadConfigWithViper() error {
 		}
 	}
 
+	// 邮件服务配置
+	if val := os.Getenv("EMAIL_SMTP_SERVER"); val != "" {
+		Config.Email.SMTPServer = val
+	}
+	if val := os.Getenv("EMAIL_SMTP_PORT"); val != "" {
+		if port, err := strconv.Atoi(val); err == nil {
+			Config.Email.SMTPPort = port
+		}
+	}
+	if val := os.Getenv("EMAIL_USERNAME"); val != "" {
+		Config.Email.Username = val
+	}
+	if val := os.Getenv("EMAIL_PASSWORD"); val != "" {
+		Config.Email.Password = val
+	}
+	if val := os.Getenv("EMAIL_FROM"); val != "" {
+		Config.Email.From = val
+	}
+
 	// CSRF配置
 	if val := os.Getenv("CSRF_ENABLED"); val != "" {
 		Config.CSRF.Enabled = convertToBool(val)
