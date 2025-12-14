@@ -2,6 +2,7 @@ package email
 
 import (
 	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"math/big"
 	"net/smtp"
@@ -73,7 +74,7 @@ func (s *EmailService) SendEmail(to, subject, body string) error {
 	header := make(map[string]string)
 	header["From"] = s.config.From
 	header["To"] = to
-	header["Subject"] = "=?UTF-8?B?" + s.base64Encode(subject) + "?="
+	header["Subject"] = "=?UTF-8?B?" + base64.StdEncoding.EncodeToString([]byte(subject)) + "?="
 	header["MIME-Version"] = "1.0"
 	header["Content-Type"] = "text/html; charset=UTF-8"
 
@@ -89,37 +90,6 @@ func (s *EmailService) SendEmail(to, subject, body string) error {
 	serverAddr := fmt.Sprintf("%s:%d", s.config.SMTPServer, s.config.SMTPPort)
 
 	return smtp.SendMail(serverAddr, auth, s.config.From, []string{to}, []byte(message))
-}
-
-// base64Encode Base64编码（简化版）
-func (s *EmailService) base64Encode(input string) string {
-	const base64Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-	var result strings.Builder
-	data := []byte(input)
-	n := len(data)
-	for i := 0; i < n; i += 3 {
-		triplet := make([]byte, 3)
-		for j := 0; j < 3 && i+j < n; j++ {
-			triplet[j] = data[i+j]
-		}
-		a := uint(triplet[0]) << 16
-		b := uint(triplet[1]) << 8
-		c := uint(triplet[2])
-		total := a | b | c
-		result.WriteByte(base64Chars[(total>>18)&0x3F])
-		result.WriteByte(base64Chars[(total>>12)&0x3F])
-		if i+1 < n {
-			result.WriteByte(base64Chars[(total>>6)&0x3F])
-		} else {
-			result.WriteByte('=')
-		}
-		if i+2 < n {
-			result.WriteByte(base64Chars[total&0x3F])
-		} else {
-			result.WriteByte('=')
-		}
-	}
-	return result.String()
 }
 
 // CreateVerificationCode 创建并保存验证码记录
