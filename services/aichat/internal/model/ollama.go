@@ -18,19 +18,19 @@ package model
 
 import (
 	"context"
-	"log"
+	"fmt"
 
 	"github.com/cloudwego/eino-ext/components/model/ollama"
 	"github.com/cloudwego/eino/components/model"
 )
 
-func CreateOllamaChatModel(ctx context.Context) model.ToolCallingChatModel {
+func CreateOllamaChatModel(ctx context.Context) (model.ToolCallingChatModel, error) {
 	chatModel, err := ollama.NewChatModel(ctx, &ollama.ChatModelConfig{
 		BaseURL: "http://localhost:11434", // Ollama 服务地址
 		Model:   "deepseek-r1",            // 模型名称
 	})
 	if err != nil {
-		log.Fatalf("create ollama chat model failed: %v", err)
+		return nil, fmt.Errorf("create ollama chat model failed: %w", err)
 	}
-	return chatModel
+	return chatModel, nil
 }

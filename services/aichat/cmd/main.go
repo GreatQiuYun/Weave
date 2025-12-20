@@ -36,8 +36,13 @@ func main() {
 
 	// 创建llm
 	log.Printf("===create llm===")
-	// cm := model.CreateOpenAIChatModel(ctx)
-	cm := model.CreateOllamaChatModel(ctx)
+	// cm, err := model.CreateOpenAIChatModel(ctx)
+	cm, err := model.CreateOllamaChatModel(ctx)
+	if err != nil {
+		log.Printf("创建模型失败: %v\n", err)
+		fmt.Println("抱歉，创建模型失败，请检查服务配置和连接。")
+		return
+	}
 	log.Printf("create llm success\n\n")
 
 	// 初始化对话历史
@@ -87,7 +92,12 @@ func main() {
 		fmt.Print("PaiChat: ")
 
 		// 使用流式生成并实时输出
-		streamReader := stream.Stream(ctx, cm, messages)
+		streamReader, err := stream.Stream(ctx, cm, messages)
+		if err != nil {
+			log.Printf("生成回复失败: %v\n", err)
+			fmt.Println("抱歉，生成回复失败，请稍后重试。")
+			continue
+		}
 		defer streamReader.Close()
 
 		// 实时处理流式输出
