@@ -24,6 +24,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"sync"
 	"weave/services/aichat/internal/chat"
 	"weave/services/aichat/internal/model"
 	"weave/services/aichat/internal/stream"
@@ -52,6 +53,7 @@ func main() {
 	// 输出欢迎信息
 	fmt.Println("欢迎使用 PaiChat 智能助手")
 	fmt.Println("你可以输入任何问题，输入 'exit' 或 'quit' 退出程序。")
+	fmt.Println("在对话生成回复时，输入 'pause' 暂停，输入 'continue' 继续，输入 'stop' 停止。")
 	fmt.Println(strings.Repeat("=", 50))
 
 	// 创建模板
@@ -105,20 +107,92 @@ func main() {
 
 		// 实时处理流式输出
 		var fullContent strings.Builder
+		var wg sync.WaitGroup
+		var isPaused bool
+		var mu sync.Mutex
+		pauseChan := make(chan bool)
+		stopChan := make(chan bool)
+		doneChan := make(chan bool)
+
+		// 启动命令监听goroutine
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			cmdScanner := bufio.NewScanner(os.Stdin)
+			for {
+				select {
+				case <-doneChan:
+					return
+				default:
+					if cmdScanner.Scan() {
+						cmd := strings.ToLower(cmdScanner.Text())
+						if cmd == "pause" {
+							mu.Lock()
+							isPaused = true
+							mu.Unlock()
+							pauseChan <- true
+							fmt.Println("\n[已暂停生成]")
+						} else if cmd == "continue" {
+							mu.Lock()
+							isPaused = false
+							mu.Unlock()
+							pauseChan <- false
+							fmt.Println("\n[已继续生成]")
+						} else if cmd == "stop" {
+							fmt.Println("\n[已停止生成]")
+							stopChan <- true
+							return
+						}
+					}
+				}
+			}
+		}()
+
+		// 处理流式输出
 		for {
-			message, err := streamReader.Recv()
-			if err != nil {
-				if err == io.EOF {
+			select {
+			case <-stopChan:
+				// 关闭流式读取器以停止生成
+				streamReader.Close()
+				goto endStream
+			default:
+				mu.Lock()
+				paused := isPaused
+				mu.Unlock()
+
+				if paused {
+					// 等待继续信号或停止信号
+					select {
+					case <-pauseChan:
+						continue
+					case <-stopChan:
+						// 关闭流式读取器以停止生成
+						streamReader.Close()
+						goto endStream
+					}
+				}
+
+				message, err := streamReader.Recv()
+				if err != nil {
+					if err == io.EOF {
+						break
+					}
+					log.Printf("流式接收失败: %v\n", err)
 					break
 				}
-				log.Printf("流式接收失败: %v\n", err)
-				break
-			}
 
-			// 输出当前片段
-			fmt.Print(message.Content)
-			fullContent.WriteString(message.Content)
+				// 输出当前片段
+				fmt.Print(message.Content)
+				fullContent.WriteString(message.Content)
+			}
 		}
+
+	endStream:
+
+		// 关闭命令监听goroutine
+		close(doneChan)
+		wg.Wait()
+
 		fmt.Println() // 换行
 		log.Printf("stream result: %+v\n\n", fullContent.String())
 
