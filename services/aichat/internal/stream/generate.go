@@ -20,11 +20,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cloudwego/eino/components/model"
+	einomodel "github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
 )
 
-func Generate(ctx context.Context, llm model.ToolCallingChatModel, in []*schema.Message) (*schema.Message, error) {
+// Generate 使用模型生成响应（支持工具调用）
+func Generate(ctx context.Context, llm einomodel.ToolCallingChatModel, in []*schema.Message) (*schema.Message, error) {
 	result, err := llm.Generate(ctx, in)
 	if err != nil {
 		return nil, fmt.Errorf("llm generate failed: %w", err)
@@ -32,10 +33,18 @@ func Generate(ctx context.Context, llm model.ToolCallingChatModel, in []*schema.
 	return result, nil
 }
 
-func Stream(ctx context.Context, llm model.ToolCallingChatModel, in []*schema.Message) (*schema.StreamReader[*schema.Message], error) {
+// Stream 使用模型生成流式响应（支持工具调用）
+func Stream(ctx context.Context, llm einomodel.ToolCallingChatModel, in []*schema.Message) (*schema.StreamReader[*schema.Message], error) {
 	result, err := llm.Stream(ctx, in)
 	if err != nil {
 		return nil, fmt.Errorf("llm generate failed: %w", err)
 	}
 	return result, nil
+}
+
+// StreamWithToolCall 处理包含工具调用的流式响应
+func StreamWithToolCall(ctx context.Context, llm einomodel.ToolCallingChatModel, in []*schema.Message) (*schema.StreamReader[*schema.Message], error) {
+	// 用于更复杂的工具调用处理
+	// 目前与Stream函数功能相同，预留扩展空间
+	return Stream(ctx, llm, in)
 }

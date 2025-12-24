@@ -28,7 +28,6 @@ import (
 	"weave/services/aichat/internal/cache"
 	"weave/services/aichat/internal/chat"
 	"weave/services/aichat/internal/model"
-	"weave/services/aichat/internal/stream"
 	"weave/services/aichat/internal/template"
 
 	"github.com/cloudwego/eino/schema"
@@ -37,16 +36,15 @@ import (
 func main() {
 	ctx := context.Background()
 
-	// 创建llm
-	log.Printf("===create llm===")
-	// cm, err := model.CreateOpenAIChatModel(ctx)
-	cm, err := model.CreateOllamaChatModel(ctx)
+	// 创建agent
+	log.Printf("===create agent===")
+	agent, err := model.CreateAgent(ctx)
 	if err != nil {
-		log.Printf("创建模型失败: %v\n", err)
-		fmt.Println("抱歉，创建模型失败，请检查服务配置和连接。")
+		log.Printf("创建agent失败: %v\n", err)
+		fmt.Println("抱歉，创建智能助手失败，请检查服务配置和连接。")
 		return
 	}
-	log.Printf("create llm success\n\n")
+	log.Printf("create agent success\n\n")
 
 	// 初始化缓存
 	var chatCache cache.Cache
@@ -114,11 +112,11 @@ func main() {
 		}
 
 		// 生成回复（使用流式输出）
-		log.Printf("===llm stream generate===")
+		log.Printf("===agent stream generate===")
 		fmt.Print("PaiChat: ")
 
 		// 使用流式生成并实时输出
-		streamReader, err := stream.Stream(ctx, cm, messages)
+		streamReader, err := agent.Stream(ctx, messages)
 		if err != nil {
 			log.Printf("生成回复失败: %v\n", err)
 			fmt.Println("抱歉，生成回复失败，请稍后重试。")
@@ -221,6 +219,14 @@ func main() {
 						}
 						log.Printf("流式接收失败: %v\n", err)
 						break
+					}
+
+					// 检查是否有工具调用
+					if len(message.ToolCalls) > 0 {
+						for _, toolCall := range message.ToolCalls {
+							fmt.Printf("\n[调用工具: %s]\n", toolCall.Function.Name)
+							log.Printf("工具调用: %+v\n", toolCall)
+						}
 					}
 
 					// 输出当前片段

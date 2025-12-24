@@ -21,10 +21,10 @@ import (
 	"fmt"
 
 	"github.com/cloudwego/eino-ext/components/model/ollama"
-	"github.com/cloudwego/eino/components/model"
+	einomodel "github.com/cloudwego/eino/components/model"
 )
 
-func CreateOllamaChatModel(ctx context.Context) (model.ToolCallingChatModel, error) {
+func CreateOllamaChatModel(ctx context.Context) (einomodel.ToolCallingChatModel, error) {
 	chatModel, err := ollama.NewChatModel(ctx, &ollama.ChatModelConfig{
 		BaseURL: "http://localhost:11434", // Ollama 服务地址
 		Model:   "deepseek-r1",            // 模型名称
