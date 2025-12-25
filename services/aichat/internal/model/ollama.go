@@ -22,12 +22,20 @@ import (
 
 	"github.com/cloudwego/eino-ext/components/model/ollama"
 	einomodel "github.com/cloudwego/eino/components/model"
+	"github.com/spf13/viper"
 )
 
 func CreateOllamaChatModel(ctx context.Context) (einomodel.ToolCallingChatModel, error) {
+	baseURL := viper.GetString("OLLAMA_BASE_URL")
+	modelName := viper.GetString("OLLAMA_MODEL_NAME")
+
+	if baseURL == "" || modelName == "" {
+		return nil, fmt.Errorf("OLLAMA_BASE_URL 或 OLLAMA_MODEL_NAME 未在 .env 文件中配置")
+	}
+
 	chatModel, err := ollama.NewChatModel(ctx, &ollama.ChatModelConfig{
-		BaseURL: "http://localhost:11434", // Ollama 服务地址
-		Model:   "deepseek-r1",            // 模型名称
+		BaseURL: baseURL,   // Ollama 服务地址
+		Model:   modelName, // 模型名称
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create ollama chat model failed: %w", err)

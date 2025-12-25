@@ -31,10 +31,21 @@ import (
 	"weave/services/aichat/internal/template"
 
 	"github.com/cloudwego/eino/schema"
+	"github.com/spf13/viper"
 )
 
 func main() {
 	ctx := context.Background()
+
+	viper.SetConfigFile(".env")
+	viper.SetConfigType("env")
+	viper.AutomaticEnv()
+
+	if err := viper.ReadInConfig(); err != nil {
+		log.Printf("未找到 .env 文件或读取失败: %v，将使用环境变量或默认值", err)
+	} else {
+		log.Printf("已加载 .env 配置文件")
+	}
 
 	// 创建agent
 	log.Printf("===create agent===")

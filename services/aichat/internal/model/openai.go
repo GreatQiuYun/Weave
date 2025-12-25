@@ -18,17 +18,23 @@ package model
 
 import (
 	"context"
-	"os"
+	"fmt"
 
 	"github.com/cloudwego/eino-ext/components/model/openai"
 	einomodel "github.com/cloudwego/eino/components/model"
+	"github.com/spf13/viper"
 )
 
 // CreateOpenAIChatModel 创建并返回一个OpenAI聊天模型实例
 func CreateOpenAIChatModel(ctx context.Context) (einomodel.ToolCallingChatModel, error) {
-	key := os.Getenv("OPENAI_API_KEY")
-	modelName := os.Getenv("OPENAI_MODEL_NAME")
-	baseURL := os.Getenv("OPENAI_BASE_URL")
+	key := viper.GetString("OPENAI_API_KEY")
+	modelName := viper.GetString("OPENAI_MODEL_NAME")
+	baseURL := viper.GetString("OPENAI_BASE_URL")
+
+	if key == "" || modelName == "" || baseURL == "" {
+		return nil, fmt.Errorf("OPENAI_API_KEY、OPENAI_MODEL_NAME 或 OPENAI_BASE_URL 未在 .env 文件中配置")
+	}
+
 	chatModel, err := openai.NewChatModel(ctx, &openai.ChatModelConfig{
 		BaseURL: baseURL,
 		Model:   modelName,
