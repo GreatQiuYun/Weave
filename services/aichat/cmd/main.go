@@ -30,6 +30,7 @@ import (
 	"weave/services/aichat/internal/model"
 	"weave/services/aichat/internal/template"
 
+	"github.com/cloudwego/eino/components/embedding"
 	"github.com/cloudwego/eino/schema"
 	"github.com/spf13/viper"
 )
@@ -89,6 +90,14 @@ func main() {
 	// 创建模板
 	template := template.CreateTemplate()
 
+	// 创建嵌入器
+	var embedder embedding.Embedder
+	embedder, err = model.NewOllamaEmbedder(ctx)
+	if err != nil {
+		log.Printf("创建 Ollama 嵌入模型失败: %v，将使用关键词匹配\n", err)
+		embedder = nil // 触发 FilterRelevantHistory 回退机制
+	}
+
 	// 读取用户输入
 	scanner := bufio.NewScanner(os.Stdin)
 	for {
@@ -110,7 +119,7 @@ func main() {
 
 		// 使用模板生成消息
 		// 过滤与当前问题相关的对话历史
-		filteredHistory := chat.FilterRelevantHistory(chatHistory, userInput, 50)
+		filteredHistory := chat.FilterRelevantHistory(ctx, embedder, chatHistory, userInput, 50)
 		messages, err := template.Format(ctx, map[string]any{
 			"role":         "PaiChat",
 			"style":        "积极、温暖且专业",
