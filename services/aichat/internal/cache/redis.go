@@ -30,7 +30,8 @@ import (
 
 // RedisClient Redis客户端结构体
 type RedisClient struct {
-	client *redis.Client
+	client      *redis.Client
+	maxMessages int
 }
 
 // NewRedisClient 创建Redis客户端实例
@@ -57,8 +58,11 @@ func NewRedisClient(ctx context.Context) (*RedisClient, error) {
 		return nil, fmt.Errorf("failed to connect to redis: %w", err)
 	}
 
+	// 默认消息数量限制
+	maxMessages := 200
+
 	log.Printf("redis connection established at %s", redisAddr)
-	return &RedisClient{client: client}, nil
+	return &RedisClient{client: client, maxMessages: maxMessages}, nil
 }
 
 // GetChatHistoryKey 生成对话历史的Redis键名
@@ -66,8 +70,20 @@ func GetChatHistoryKey(userID string) string {
 	return fmt.Sprintf("chat:history:%s", userID)
 }
 
+// limitHistoryLength 限制对话历史长度
+func (rc *RedisClient) limitHistoryLength(history []*schema.Message) []*schema.Message {
+	if len(history) > rc.maxMessages {
+		// 只保留最近的消息
+		return history[len(history)-rc.maxMessages:]
+	}
+	return history
+}
+
 // SaveChatHistory 保存对话历史到Redis
 func (rc *RedisClient) SaveChatHistory(ctx context.Context, userID string, history []*schema.Message) error {
+	// 限制对话历史长度
+	history = rc.limitHistoryLength(history)
+
 	// 将对话历史序列化为JSON
 	data, err := json.Marshal(history)
 	if err != nil {
