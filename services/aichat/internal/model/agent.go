@@ -97,9 +97,13 @@ func CreateAgent(ctx context.Context) (*react.Agent, error) {
 	var modelName string
 
 	// 根据配置类型选择模型
-	if viper.GetString("ai.model.type") == "openai" {
+	modelType := viper.GetString("AI_MODEL_TYPE")
+	if modelType == "openai" {
 		llm, err = CreateOpenAIChatModel(ctx)
 		modelName = viper.GetString("OPENAI_MODEL_NAME")
+	} else if modelType == "modelscope" {
+		llm, err = CreateModelScopeChatModel(ctx)
+		modelName = viper.GetString("MODELSCOPE_MODEL_NAME")
 	} else {
 		llm, err = CreateOllamaChatModel(ctx)
 		modelName = viper.GetString("OLLAMA_MODEL_NAME")

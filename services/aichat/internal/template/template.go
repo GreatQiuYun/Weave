@@ -24,17 +24,15 @@ import (
 	"github.com/cloudwego/eino/schema"
 )
 
+// CreateTemplate 创建模板函数
 func CreateTemplate() prompt.ChatTemplate {
-	// 创建模板，使用 FString 格式
+	// 创建模板
 	return prompt.FromMessages(schema.FString,
 		// 系统消息模板
-		schema.SystemMessage("你是一个{role}。你需要用{style}的语气回答问题。你的目标是全面准确地回答用户的疑问或给出适当的建议，同时提高用户的满意度"),
-
-		// 插入需要的对话历史（新对话的话这里不填）
-		schema.MessagesPlaceholder("chat_history", true),
+		schema.SystemMessage("你是一个{role}。你需要用{style}的语气回答问题。你的目标是全面准确地回答用户的疑问或给出适当的建议，同时提高用户的满意度\n\n对话历史：\n{chat_history}"),
 
 		// 用户消息模板
-		schema.UserMessage("问题: {question}"),
+		schema.UserMessage("{question}"),
 	)
 }
 
@@ -46,13 +44,8 @@ func CreateMessagesFromTemplate() []*schema.Message {
 		"role":     "PaiChat",
 		"style":    "积极、温暖且专业",
 		"question": "现在AI发展前景如何？",
-		// 对话历史（模拟两轮对话历史）
-		"chat_history": []*schema.Message{
-			schema.UserMessage("你好"),
-			schema.AssistantMessage("嘿！我是PaiChat智能助手！有什么我可以帮助你的吗？", nil),
-			schema.UserMessage("现在AI发展前景如何？"),
-			schema.AssistantMessage("AI发展前景非常广阔！从聊天机器人到智能助手，从虚拟助手到智能问答，AI技术正在改变我们的生活方式。未来，AI将继续发展，为我们提供更多便利和价值。", nil),
-		},
+		// 对话历史(字符串格式）
+		"chat_history": "user: 你好\nassistant: 嘿！我是PaiChat智能助手！有什么我可以帮助你的吗？\nuser: 现在AI发展前景如何？\nassistant: AI发展前景非常广阔！从聊天机器人到智能助手，从虚拟助手到智能问答，AI技术正在改变我们的生活方式。未来，AI将继续发展，为我们提供更多便利和价值。\n",
 	})
 	if err != nil {
 		log.Fatalf("format template failed: %v\n", err)

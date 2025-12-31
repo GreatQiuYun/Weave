@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"strings"
 
@@ -85,19 +86,27 @@ func (s *chatServiceImpl) ProcessUserInput(ctx context.Context, userInput string
 	// 过滤与当前问题相关的对话历史
 	filteredHistory := chat.FilterRelevantHistory(ctx, s.embedder, chatHistory, userInput, 50)
 
+	// 将历史消息转换为字符串形式
+	var chatHistoryStr string
+	for _, msg := range filteredHistory {
+		if msg.Content != "" {
+			chatHistoryStr += fmt.Sprintf("%s: %s\n", msg.Role, msg.Content)
+		}
+	}
+
 	// 使用模板生成消息
 	messages, err := s.chatTemplate.Format(ctx, map[string]any{
 		"role":         "PaiChat",
 		"style":        "积极、温暖且专业",
 		"question":     userInput,
-		"chat_history": filteredHistory,
+		"chat_history": chatHistoryStr,
 	})
 	if err != nil {
 		log.Printf("format template failed: %v\n", err)
 		return "", err
 	}
 
-	// 生成回复（使用Stream方法，因为Run方法不存在）
+	// 生成回复
 	streamReader, err := s.agent.Stream(ctx, messages)
 	if err != nil {
 		log.Printf("生成回复失败: %v\n", err)
@@ -147,12 +156,20 @@ func (s *chatServiceImpl) ProcessUserInputStream(ctx context.Context, userInput 
 	// 过滤与当前问题相关的对话历史
 	filteredHistory := chat.FilterRelevantHistory(ctx, s.embedder, chatHistory, userInput, 50)
 
+	// 将历史消息转换为字符串形式
+	var chatHistoryStr string
+	for _, msg := range filteredHistory {
+		if msg.Content != "" {
+			chatHistoryStr += fmt.Sprintf("%s: %s\n", msg.Role, msg.Content)
+		}
+	}
+
 	// 使用模板生成消息
 	messages, err := s.chatTemplate.Format(ctx, map[string]any{
 		"role":         "PaiChat",
 		"style":        "积极、温暖且专业",
 		"question":     userInput,
-		"chat_history": filteredHistory,
+		"chat_history": chatHistoryStr,
 	})
 	if err != nil {
 		log.Printf("format template failed: %v\n", err)
@@ -203,8 +220,6 @@ func (s *chatServiceImpl) ProcessUserInputStream(ctx context.Context, userInput 
 			}
 		}
 	}
-
-	log.Printf("stream result: %+v\n\n", fullContent.String())
 
 	// 更新对话历史
 	resultContent := fullContent.String()

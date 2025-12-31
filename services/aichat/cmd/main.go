@@ -24,6 +24,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 	"weave/services/aichat/internal/service"
 )
 
@@ -85,30 +86,42 @@ func main() {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			cmdScanner := bufio.NewScanner(os.Stdin)
+			// 创建带有超时的命令监听
 			for {
 				select {
 				case <-doneChan:
 					return
 				default:
-					if cmdScanner.Scan() {
-						cmd := strings.ToLower(cmdScanner.Text())
-						if cmd == "pause" {
-							mu.Lock()
-							isPaused = true
-							mu.Unlock()
-							pauseChan <- true
-							fmt.Println("\n[已暂停生成]")
-						} else if cmd == "continue" {
-							mu.Lock()
-							isPaused = false
-							mu.Unlock()
-							pauseChan <- false
-							fmt.Println("\n[已继续生成]")
-						} else if cmd == "stop" {
-							fmt.Println("\n[已停止生成]")
-							stopChan <- true
-							return
+					// 设置一个短超时，定期检查doneChan
+					select {
+					case <-doneChan:
+						return
+					case <-time.After(100 * time.Millisecond):
+						// 非阻塞地读取输入
+						if os.Stdin != nil {
+							os.Stdin.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
+							reader := bufio.NewReader(os.Stdin)
+							cmd, err := reader.ReadString('\n')
+							if err == nil {
+								cmd = strings.TrimSpace(strings.ToLower(cmd))
+								if cmd == "pause" {
+									mu.Lock()
+									isPaused = true
+									mu.Unlock()
+									pauseChan <- true
+									fmt.Println("\n[已暂停生成]")
+								} else if cmd == "continue" {
+									mu.Lock()
+									isPaused = false
+									mu.Unlock()
+									pauseChan <- false
+									fmt.Println("\n[已继续生成]")
+								} else if cmd == "stop" {
+									fmt.Println("\n[已停止生成]")
+									stopChan <- true
+									return
+								}
+							}
 						}
 					}
 				}
