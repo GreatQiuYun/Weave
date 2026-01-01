@@ -19,16 +19,23 @@ package main
 import (
 	"bufio"
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"os"
 	"strings"
 	"sync"
 	"time"
+	"weave/services/aichat/internal/api"
 	"weave/services/aichat/internal/service"
 )
 
 func main() {
+	// 解析命令行参数
+	apiMode := flag.Bool("api", false, "启动 aichat 服务器模式")
+	apiAddr := flag.String("api-addr", ":8080", "aichat 服务器监听地址")
+	flag.Parse()
+
 	ctx := context.Background()
 
 	// 创建服务
@@ -40,6 +47,15 @@ func main() {
 		return
 	}
 	defer chatService.Close(ctx)
+
+	if *apiMode {
+		// 创建并启动 aichat 服务器
+		apiServer := api.NewAPIServer(chatService, *apiAddr)
+		if err := apiServer.Start(); err != nil {
+			log.Fatalf("aichat 服务器启动失败: %v", err)
+		}
+		return
+	}
 
 	// 模拟用户ID（实际应用中从认证系统获取）
 	userID := "default_user"
