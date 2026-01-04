@@ -19,15 +19,16 @@ package api
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"net/http"
 	"strings"
 	"sync"
 
+	"weave/pkg"
 	"weave/services/aichat/internal/service"
 
 	"github.com/cloudwego/eino/schema"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 // API Server 结构体
@@ -35,6 +36,7 @@ type APIServer struct {
 	chatService service.ChatService
 	router      *gin.Engine
 	addr        string
+	logger      *pkg.Logger
 }
 
 // Request/Response 结构体定义
@@ -72,6 +74,7 @@ func NewAPIServer(chatService service.ChatService, addr string) *APIServer {
 		chatService: chatService,
 		router:      gin.Default(),
 		addr:        addr,
+		logger:      pkg.GetLogger(),
 	}
 
 	// 注册路由
@@ -117,7 +120,7 @@ func (s *APIServer) handleChat(c *gin.Context) {
 	// 调用服务层处理
 	content, err := s.chatService.ProcessUserInput(c.Request.Context(), req.UserInput, req.UserID)
 	if err != nil {
-		log.Printf("处理聊天请求失败: %v", err)
+		s.logger.Error("处理聊天请求失败", zap.Error(err), zap.String("user_id", req.UserID))
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
 			Error:  "处理请求失败: " + err.Error(),
 			Status: "error",
@@ -194,7 +197,7 @@ func (s *APIServer) handleChatStream(c *gin.Context) {
 	// 使用服务层处理用户输入
 	fullContent, err := s.chatService.ProcessUserInputStream(ctx, req.UserInput, req.UserID, streamCallback, controlCallback)
 	if err != nil && !strings.Contains(err.Error(), "context canceled") {
-		log.Printf("流式处理请求失败: %v", err)
+		s.logger.Error("流式处理请求失败", zap.Error(err), zap.String("user_id", req.UserID))
 		response := ErrorResponse{
 			Error:  "流式处理失败: " + err.Error(),
 			Status: "error",
@@ -231,7 +234,7 @@ func (s *APIServer) handleGetChatHistory(c *gin.Context) {
 	// 获取聊天历史
 	messages, err := s.chatService.GetChatHistory(c.Request.Context(), userID)
 	if err != nil {
-		log.Printf("获取聊天历史失败: %v", err)
+		s.logger.Error("获取聊天历史失败", zap.Error(err), zap.String("user_id", userID))
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
 			Error:  "获取聊天历史失败: " + err.Error(),
 			Status: "error",
@@ -260,7 +263,7 @@ func (s *APIServer) handleClearChatHistory(c *gin.Context) {
 	// 清除聊天历史
 	err := s.chatService.ClearChatHistory(c.Request.Context(), userID)
 	if err != nil {
-		log.Printf("清除聊天历史失败: %v", err)
+		s.logger.Error("清除聊天历史失败", zap.Error(err), zap.String("user_id", userID))
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
 			Error:  "清除聊天历史失败: " + err.Error(),
 			Status: "error",
@@ -285,6 +288,6 @@ func (s *APIServer) handleHealthCheck(c *gin.Context) {
 
 // Start 启动API服务器
 func (s *APIServer) Start() error {
-	log.Printf("aichat Server 启动，监听地址: %s", s.addr)
+	s.logger.Info("aichat Server 启动", zap.String("listen_addr", s.addr))
 	return s.router.Run(s.addr)
 }

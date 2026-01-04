@@ -18,9 +18,9 @@ package model
 
 import (
 	"context"
-	"log"
 	"strings"
 
+	"weave/pkg"
 	"weave/services/aichat/internal/tool"
 
 	einomodel "github.com/cloudwego/eino/components/model"
@@ -28,6 +28,7 @@ import (
 	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/flow/agent/react"
 	"github.com/spf13/viper"
+	"go.uber.org/zap"
 )
 
 // 模型支持工具调用的配置映射
@@ -84,8 +85,10 @@ func CreateAgent(ctx context.Context) (*react.Agent, error) {
 	viper.SetConfigType("env")
 	viper.AutomaticEnv()
 
+	// 获取日志实例
+	logger := pkg.GetLogger()
 	if err := viper.ReadInConfig(); err != nil {
-		log.Printf("未找到 .env 文件或读取失败: %v，将使用环境变量或默认值", err)
+		logger.Warn("未找到 .env 文件或读取失败，将使用环境变量或默认值", zap.Error(err))
 	}
 
 	// 初始化模型支持配置
@@ -117,10 +120,10 @@ func CreateAgent(ctx context.Context) (*react.Agent, error) {
 	var tools []einotool.BaseTool
 	if isModelSupportToolCall(modelName) {
 		tools = loadTools(ctx)
-		log.Printf("当前模型 %s 支持工具调用，已加载 %d 个工具", modelName, len(tools))
+		logger.Info("当前模型支持工具调用", zap.String("model_name", modelName), zap.Int("tool_count", len(tools)))
 	} else {
 		tools = []einotool.BaseTool{}
-		log.Printf("当前模型 %s 不支持工具调用，将以普通对话模式运行", modelName)
+		logger.Info("当前模型不支持工具调用，将以普通对话模式运行", zap.String("model_name", modelName))
 	}
 
 	// 创建React Agent
