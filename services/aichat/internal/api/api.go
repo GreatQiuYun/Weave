@@ -23,6 +23,7 @@ import (
 	"strings"
 	"sync"
 
+	"weave/middleware"
 	"weave/pkg"
 	"weave/services/aichat/internal/service"
 
@@ -89,7 +90,7 @@ func (s *APIServer) registerRoutes() {
 	api := s.router.Group("/api")
 
 	// 聊天相关路由
-	chat := api.Group("/chat")
+	chat := api.Group("/chat").Use(middleware.RateLimiter(20, 30))
 	{
 		// 非流式聊天接口
 		chat.POST("", s.handleChat)
