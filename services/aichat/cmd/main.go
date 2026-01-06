@@ -21,13 +21,15 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 	"sync"
 	"time"
+	"weave/pkg"
 	"weave/services/aichat/internal/api"
 	"weave/services/aichat/internal/service"
+
+	"go.uber.org/zap"
 )
 
 func main() {
@@ -38,11 +40,15 @@ func main() {
 
 	ctx := context.Background()
 
+	// 创建日志实例
+	logger := pkg.GetLogger()
+
 	// 创建服务
 	chatService := service.NewChatService()
 
 	// 初始化服务
 	if err := chatService.Initialize(ctx); err != nil {
+		logger.Error("创建智能助手失败", zap.Error(err))
 		fmt.Println("抱歉，创建智能助手失败，请检查服务配置和连接。")
 		return
 	}
@@ -52,7 +58,7 @@ func main() {
 		// 创建并启动 aichat 服务器
 		apiServer := api.NewAPIServer(chatService, *apiAddr)
 		if err := apiServer.Start(); err != nil {
-			log.Fatalf("aichat 服务器启动失败: %v", err)
+			logger.Fatal("aichat 服务器启动失败", zap.Error(err))
 		}
 		return
 	}
@@ -86,7 +92,7 @@ func main() {
 		}
 
 		// 生成回复（使用流式输出）
-		log.Printf("===agent stream generate===")
+		logger.Info("开始生成回复", zap.String("user_id", userID))
 		fmt.Print("PaiChat: ")
 
 		// 控制信号变量
@@ -94,8 +100,8 @@ func main() {
 		var isStopped bool
 		var mu sync.Mutex
 		var wg sync.WaitGroup
-		pauseChan := make(chan bool)
-		stopChan := make(chan bool)
+		pauseChan := make(chan bool, 1)
+		stopChan := make(chan bool, 1)
 		doneChan := make(chan bool)
 
 		// 启动命令监听goroutine
@@ -179,7 +185,7 @@ func main() {
 		// 使用服务层处理用户输入
 		_, err := chatService.ProcessUserInputStream(ctx, userInput, userID, streamCallback, controlCallback)
 		if err != nil {
-			log.Printf("生成回复失败: %v\n", err)
+			logger.Error("生成回复失败", zap.Error(err), zap.String("user_id", userID))
 			fmt.Println("抱歉，生成回复失败，请稍后重试。")
 			continue
 		}
@@ -194,6 +200,6 @@ func main() {
 
 	// 处理可能的错误
 	if err := scanner.Err(); err != nil {
-		log.Fatalf("读取输入失败: %v\n", err)
+		logger.Fatal("读取输入失败", zap.Error(err))
 	}
 }

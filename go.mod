@@ -94,7 +94,7 @@ require (
 
 require (
 	github.com/bytedance/sonic v1.14.2 // indirect
-	github.com/cloudwego/eino v0.7.11
+	github.com/cloudwego/eino v0.7.18
 	github.com/cloudwego/eino-ext/components/document/transformer/splitter/markdown v0.0.0-20251105133430-149843ccfe5d
 	github.com/cloudwego/eino-ext/components/embedding/ark v0.1.0
 	github.com/cloudwego/eino-ext/components/indexer/redis v0.0.0-20251105133430-149843ccfe5d
