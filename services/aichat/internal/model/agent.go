@@ -47,8 +47,8 @@ var (
 // 初始化模型支持配置
 func initModelSupportConfig() {
 	// 加载工具调用模型列表
-	supportedModelList := viper.GetString("SUPPORTED_TOOL_CALL_MODELS")
-	unsupportedModelList := viper.GetString("UNSUPPORTED_TOOL_CALL_MODELS")
+	supportedModelList := viper.GetString("AICHAT_SUPPORTED_TOOL_CALL_MODELS")
+	unsupportedModelList := viper.GetString("AICHAT_UNSUPPORTED_TOOL_CALL_MODELS")
 
 	// 初始化映射
 	supportedToolCallModels = make(map[string]bool)
@@ -88,7 +88,7 @@ func TrimSpace(s string) string {
 
 // CreateAgent 创建并初始化一个React Agent
 func CreateAgent(ctx context.Context) (*react.Agent, error) {
-	viper.SetConfigFile(".env")
+	viper.SetConfigFile("../.env")
 	viper.SetConfigType("env")
 	viper.AutomaticEnv()
 
@@ -107,16 +107,16 @@ func CreateAgent(ctx context.Context) (*react.Agent, error) {
 	var modelName string
 
 	// 根据配置类型选择模型
-	modelType := viper.GetString("AI_MODEL_TYPE")
+	modelType := viper.GetString("AICHAT_MODEL_TYPE")
 	if modelType == "openai" {
 		llm, err = CreateOpenAIChatModel(ctx)
-		modelName = viper.GetString("OPENAI_MODEL_NAME")
+		modelName = viper.GetString("AICHAT_OPENAI_MODEL_NAME")
 	} else if modelType == "modelscope" {
 		llm, err = CreateModelScopeChatModel(ctx)
-		modelName = viper.GetString("MODELSCOPE_MODEL_NAME")
+		modelName = viper.GetString("AICHAT_MODELSCOPE_MODEL_NAME")
 	} else {
 		llm, err = CreateOllamaChatModel(ctx)
-		modelName = viper.GetString("OLLAMA_MODEL_NAME")
+		modelName = viper.GetString("AICHAT_OLLAMA_MODEL_NAME")
 	}
 
 	if err != nil {
@@ -203,7 +203,7 @@ func loadMCPTools(ctx context.Context) []einotool.BaseTool {
 	}
 
 	// 加载本地MCP工具
-	mcpRootPath := viper.GetString("MCP_PATH")
+	mcpRootPath := viper.GetString("AICHAT_MCP_PATH")
 	if mcpRootPath != "" {
 		// 获取当前工作目录
 		cwd, _ := os.Getwd()
@@ -261,7 +261,7 @@ func loadMCPTools(ctx context.Context) []einotool.BaseTool {
 	}
 
 	// 加载 streamable_http tools
-	httpUrlsStr := viper.GetString("MCP_HTTP_URLS")
+	httpUrlsStr := viper.GetString("AICHAT_MCP_HTTP_URLS")
 	httpUrls := pkg.ParseKeyValuePairs(httpUrlsStr)
 	if len(httpUrls) > 0 {
 		logger.Info("开始加载HTTP MCP工具", zap.Int("count", len(httpUrls)))
@@ -283,7 +283,7 @@ func loadMCPTools(ctx context.Context) []einotool.BaseTool {
 	}
 
 	// 加载 sse tools
-	sseUrlsStr := viper.GetString("MCP_SSE_URLS")
+	sseUrlsStr := viper.GetString("AICHAT_MCP_SSE_URLS")
 	sseUrls := pkg.ParseKeyValuePairs(sseUrlsStr)
 	if len(sseUrls) > 0 {
 		logger.Info("开始加载SSE MCP工具", zap.Int("count", len(sseUrls)))
