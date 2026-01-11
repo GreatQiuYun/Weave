@@ -14,6 +14,8 @@ import (
 	"github.com/cloudwego/eino/components/embedding"
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
+
+	"weave/services/rag/internal/cache"
 )
 
 // RAGService RAG服务
@@ -22,6 +24,7 @@ type RAGService struct {
 	rragMatcher     *RAGMatcher
 	config          *RAGServiceConfig
 	logger          *slog.Logger
+	redisClient     *cache.RedisCache
 }
 
 // RAGServiceConfig RAG服务配置
@@ -63,11 +66,21 @@ func NewRAGService(
 	ragMatcherConfig := NewRAGMatcherConfig()
 	ragMatcher := NewRAGMatcher(embedder, llm, ragMatcherConfig, logger)
 
+	// 初始化Redis缓存
+	var redisClient *cache.RedisCache
+	var err error
+	ctx := context.Background()
+	redisClient, err = cache.NewRedisCache(ctx, logger)
+	if err != nil {
+		logger.Warn("Redis缓存初始化失败，将使用无缓存模式", slog.Any("error", err))
+	}
+
 	return &RAGService{
 		documentService: documentService,
 		rragMatcher:     ragMatcher,
 		config:          config,
 		logger:          logger.With("component", "rag_service"),
+		redisClient:     redisClient,
 	}
 }
 
@@ -92,15 +105,42 @@ func (rs *RAGService) Query(ctx context.Context, query string) (string, error) {
 		return "", fmt.Errorf("查询内容为空")
 	}
 
-	// 加载并分割文档
-	chunks, err := rs.documentService.LoadAndSplitDocuments(ctx, rs.config.DocumentDir)
-	if err != nil {
-		rs.logger.Error("加载文档失败", slog.Any("error", err))
-		return "", fmt.Errorf("加载文档失败: %w", err)
+	// 从缓存获取查询结果
+	if rs.redisClient != nil {
+		if cachedResult, err := rs.redisClient.GetQueryResult(ctx, query); err == nil {
+			rs.logger.Debug("从缓存获取查询结果")
+			return cachedResult, nil
+		}
 	}
 
-	if len(chunks) == 0 {
-		return "", fmt.Errorf("未加载到任何文档")
+	// 尝试从缓存获取文档块
+	var chunks []*schema.Document
+	var err error
+	if rs.redisClient != nil {
+		chunks, err = rs.redisClient.GetDocumentChunks(ctx, rs.config.DocumentDir)
+		if err == nil {
+			rs.logger.Debug("从缓存获取文档块")
+		}
+	}
+
+	// 如果缓存中没有，加载并分割文档
+	if chunks == nil || len(chunks) == 0 {
+		chunks, err = rs.documentService.LoadAndSplitDocuments(ctx, rs.config.DocumentDir)
+		if err != nil {
+			rs.logger.Error("加载文档失败", slog.Any("error", err))
+			return "", fmt.Errorf("加载文档失败: %w", err)
+		}
+
+		if len(chunks) == 0 {
+			return "", fmt.Errorf("未加载到任何文档")
+		}
+
+		// 将文档块存入缓存
+		if rs.redisClient != nil {
+			if err := rs.redisClient.SetDocumentChunks(ctx, rs.config.DocumentDir, chunks); err != nil {
+				rs.logger.Warn("文档块缓存失败", slog.Any("error", err))
+			}
+		}
 	}
 
 	// 获取相关文档块
@@ -112,6 +152,13 @@ func (rs *RAGService) Query(ctx context.Context, query string) (string, error) {
 
 	// 生成最终结果
 	result := rs.generateResult(query, relevantChunks)
+
+	// 将查询结果存入缓存
+	if rs.redisClient != nil {
+		if err := rs.redisClient.SetQueryResult(ctx, query, result); err != nil {
+			rs.logger.Warn("查询结果缓存失败", slog.Any("error", err))
+		}
+	}
 
 	return result, nil
 }
@@ -257,7 +304,12 @@ func (rs *RAGService) HealthCheck(ctx context.Context) (bool, map[string]any, er
 
 // Close 关闭服务
 func (rs *RAGService) Close(ctx context.Context) error {
-	// 这里可以添加资源清理逻辑
+	// 关闭Redis缓存连接
+	if rs.redisClient != nil {
+		if err := rs.redisClient.Close(ctx); err != nil {
+			rs.logger.Warn("Redis缓存关闭失败", slog.Any("error", err))
+		}
+	}
 	return nil
 }
 
