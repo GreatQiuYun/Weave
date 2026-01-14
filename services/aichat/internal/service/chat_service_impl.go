@@ -56,17 +56,19 @@ func (s *chatServiceImpl) Initialize(ctx context.Context) error {
 	// 保存模型类型
 	s.modelType = viper.GetString("AICHAT_MODEL_TYPE")
 
-	// 创建对话agent
+	// 创建普通agent
+	s.logger.Info("开始创建普通agent")
 	var err error
 	s.agent, err = model.CreateAgent(ctx)
 	if err != nil {
 		s.logger.Error("创建普通agent失败", zap.Error(err))
 		return err
 	}
-	s.logger.Info("创建对话agent成功")
+	s.logger.Info("创建普通agent成功")
 
 	// 创建视觉agent（仅当使用modelscope时）
 	if s.modelType == "modelscope" {
+		s.logger.Info("开始创建视觉agent")
 		s.visionAgent, err = model.CreateModelScopeVisionAgent(ctx)
 		if err != nil {
 			s.logger.Warn("创建视觉agent失败，将使用普通agent处理图像", zap.Error(err))
@@ -102,7 +104,7 @@ func (s *chatServiceImpl) Initialize(ctx context.Context) error {
 
 	// 初始化图片上传速率限制器
 	s.rateLimiter = security.NewImageRateLimiter(s.chatCache)
-	s.logger.Info("图像上传限流器初始化完成")
+	s.logger.Info("图片上传速率限制器初始化完成")
 
 	return nil
 }
