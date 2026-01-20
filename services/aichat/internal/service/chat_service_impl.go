@@ -218,16 +218,28 @@ func (s *chatServiceImpl) processUserInputWithImages(ctx context.Context, userIn
 		}
 	}
 
-	// 使用模板包中的便捷方法格式化消息
-	messages, err := template.FormatMessage(ctx, "PaiChat", "积极、温暖且专业", chatHistoryStr.String(), filteredInput)
-	if err != nil {
-		s.logger.Error("模板格式化失败", zap.Error(err), zap.String("user_id", userID))
-		// 如果模板格式化失败，回退到直接使用消息
+	// 构造消息（包含图片数据）
+	var messages []*schema.Message
+	if len(imageURLs) > 0 || len(base64Images) > 0 {
 		messages = []*schema.Message{}
 		for _, msg := range filteredHistory {
 			messages = append(messages, msg)
 		}
 		messages = append(messages, userMessage)
+		s.logger.Info("使用原始消息格式处理包含图片的请求", zap.String("user_id", userID))
+	} else {
+		// 纯文本消息，使用模板格式化
+		var err error
+		messages, err = template.FormatMessage(ctx, "PaiChat", "积极、温暖且专业", chatHistoryStr.String(), filteredInput)
+		if err != nil {
+			s.logger.Error("模板格式化失败", zap.Error(err), zap.String("user_id", userID))
+			// 如果模板格式化失败，回退到直接使用消息
+			messages = []*schema.Message{}
+			for _, msg := range filteredHistory {
+				messages = append(messages, msg)
+			}
+			messages = append(messages, userMessage)
+		}
 	}
 
 	// 选择合适的agent
@@ -389,16 +401,28 @@ func (s *chatServiceImpl) processUserInputStreamWithImages(ctx context.Context, 
 		}
 	}
 
-	// 使用模板包中的便捷方法格式化消息
-	messages, err := template.FormatMessage(ctx, "PaiChat", "积极、温暖且专业", chatHistoryStr.String(), filteredInput)
-	if err != nil {
-		s.logger.Error("模板格式化失败", zap.Error(err), zap.String("user_id", userID))
-		// 如果模板格式化失败，回退到直接使用消息
+	// 构造消息（包含图片数据）
+	var messages []*schema.Message
+	if len(imageURLs) > 0 || len(base64Images) > 0 {
 		messages = []*schema.Message{}
 		for _, msg := range filteredHistory {
 			messages = append(messages, msg)
 		}
 		messages = append(messages, userMessage)
+		s.logger.Info("使用原始消息格式处理包含图片的流式请求", zap.String("user_id", userID))
+	} else {
+		// 纯文本消息，使用模板格式化
+		var err error
+		messages, err = template.FormatMessage(ctx, "PaiChat", "积极、温暖且专业", chatHistoryStr.String(), filteredInput)
+		if err != nil {
+			s.logger.Error("模板格式化失败", zap.Error(err), zap.String("user_id", userID))
+			// 如果模板格式化失败，回退到直接使用消息
+			messages = []*schema.Message{}
+			for _, msg := range filteredHistory {
+				messages = append(messages, msg)
+			}
+			messages = append(messages, userMessage)
+		}
 	}
 
 	// 选择合适的agent
