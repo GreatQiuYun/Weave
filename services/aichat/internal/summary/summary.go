@@ -35,19 +35,19 @@ type SummaryGenerator interface {
 
 // SimpleSummaryGenerator 摘要生成器实现
 type SimpleSummaryGenerator struct {
-	maxSummaryLength int                  // 摘要最大长度
-	minMessageCount  int                  // 生成摘要的最小消息数
-	tfidfCalculator  *pkg.TFIDFCalculator // TF-IDF计算器
+	maxSummaryLength int                 // 摘要最大长度
+	minMessageCount  int                 // 生成摘要的最小消息数
+	bm25Calculator   *pkg.BM25Calculator // BM25计算器
 }
 
-// NewTFIDFSummaryGenerator 创建TF-IDF摘要生成器
-func NewTFIDFSummaryGenerator(conversationHistory []string) *SimpleSummaryGenerator {
-	tfidfCalculator := pkg.NewTFIDFCalculator(conversationHistory)
+// NewBM25SummaryGenerator 创建BM25摘要生成器
+func NewBM25SummaryGenerator(conversationHistory []string) *SimpleSummaryGenerator {
+	bm25Calculator := pkg.NewBM25Calculator(conversationHistory)
 
 	return &SimpleSummaryGenerator{
 		maxSummaryLength: 260,
 		minMessageCount:  3,
-		tfidfCalculator:  tfidfCalculator,
+		bm25Calculator:   bm25Calculator,
 	}
 }
 
@@ -135,17 +135,17 @@ func (sg *SimpleSummaryGenerator) UpdateSummary(ctx context.Context, existingSum
 		return existingSummary, nil
 	}
 
-	// 增量更新TF-IDF词汇表
+	// 增量更新BM25词汇表
 	for _, msg := range newMessages {
 		if msg.Content != "" {
-			sg.tfidfCalculator.AddDocument(msg.Content)
+			sg.bm25Calculator.AddDocument(msg.Content)
 		}
 	}
 
 	return sg.GenerateSummary(ctx, newMessages)
 }
 
-// extractKeywords TF-IDF提取关键词
+// extractKeywords BM25提取关键词
 func (sg *SimpleSummaryGenerator) extractKeywords(userQuestions []string) string {
 	if len(userQuestions) == 0 {
 		return ""
@@ -177,8 +177,8 @@ func (sg *SimpleSummaryGenerator) ExtractKeywords(text string, topN int) []strin
 		return []string{}
 	}
 
-	// 使用TF-IDF计算器提取关键词
-	keywords := sg.tfidfCalculator.ExtractKeywords(text, topN)
+	// 使用BM25计算器提取关键词
+	keywords := sg.bm25Calculator.ExtractKeywords(text, topN)
 
 	// 过滤关键词
 	return filterKeywords(keywords)
