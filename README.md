@@ -6,7 +6,6 @@
   <img src="https://img.shields.io/badge/AI--LLM-74AA9C?style=for-the-badge&logo=brain&logoColor=white" alt="AI-LLM">
   <img src="https://img.shields.io/badge/Plugin%20and Service-FF6F00?style=for-the-badge&logo=ai&logoColor=white" alt="Plugin and Service">
   <img src="https://img.shields.io/badge/Cloud_Native-3371E3?style=for-the-badge&logo=Docker&logoColor=white" alt="Cloud Native">
-
   **Language Options:** [中文](README.zh-CN.md) | [English](README.md)
 </div>
 
@@ -547,5 +546,6 @@ Welcome contributions to the project! Thank you!
 ---
 
 ### <div align="center"> <strong>✨ Continuously updating and improving... ✨</strong> </div>
+
 
 
